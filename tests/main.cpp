@@ -21,7 +21,8 @@ static void printState(const Actuator& actuator) {
 }
 
 int main() {
-    Actuator actuator("calibration.csv");
+    Actuator actuator("data/calibration.csv");
+    actuator.setMode(Actuator::Mode::Interpolated);
     
     std::cout << "1. Initial state:" << std::endl;
     printState(actuator);

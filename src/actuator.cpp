@@ -8,10 +8,12 @@
 
 Actuator::Actuator(const std::string& calibration_file) 
     : current_current_(0.0)
-    , current_state_(State::Uninitialized) {
+    , current_state_(State::Uninitialized),
+    mode_(Mode::Nearest) {
     if (!loadCalibrationData(calibration_file)) {
         current_state_ = State::Error;
     }
+    std::cout << "Actuator initialized with mode: " << static_cast<int>(mode_) << std::endl;
 }
 
 bool Actuator::initialize() {
@@ -23,6 +25,11 @@ bool Actuator::initialize() {
     current_current_ = 0.0;
     current_state_ = State::Operational;
     return true;
+}
+
+void Actuator::setMode(Mode mode) {
+    mode_ = mode;
+    std::cout << "Actuator mode set to: " << static_cast<int>(mode_) << std::endl;
 }
 
 bool Actuator::setCurrent(double current) {
@@ -49,7 +56,13 @@ double Actuator::getPosition() const {
     if (current_state_ != State::Operational) {
         return 0.0;
     }
-    return findNearestPosition(current_current_);
+
+    if (mode_ == Mode::Nearest) {
+        return findNearestPosition(current_current_);
+    } else if (mode_ == Mode::Interpolated) {
+        return findInterpolatedPosition(current_current_);
+    }
+    return 0.0;
 }
 
 Actuator::State Actuator::getState() const {
@@ -135,6 +148,33 @@ double Actuator::findNearestPosition(double current) const {
         return prev->second;
     }
     return it->second;
+}
+
+double Actuator::findInterpolatedPosition(double current) const {
+    if (calibration_data_.empty()) {
+        return 0.0;
+    }
+
+    // Find the lower bound
+    auto it = std::lower_bound(
+        calibration_data_.begin(),
+        calibration_data_.end(),
+        std::make_pair(current, 0.0)
+    );
+
+    // Handle edge cases
+    if (it == calibration_data_.begin()) {
+        return calibration_data_.front().second;
+    }
+
+    if (it == calibration_data_.end()) {
+        return calibration_data_.back().second;
+    }
+
+    // Perform linear interpolation
+    auto prev = std::prev(it);
+    double t = (current - prev->first) / (it->first - prev->first);
+    return prev->second + t * (it->second - prev->second);
 }
 
 bool Actuator::isCurrentValid(double current) const {
